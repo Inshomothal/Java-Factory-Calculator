@@ -4,11 +4,9 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Factory Recipe Calculator</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 12px; }
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 12px; }
     label { margin-right: 12px; display: inline-block; }
     pre { background:#f6f6f6; padding:12px; overflow:auto; }
-    .chart-wrap { height: 260px; }
-    canvas { height: 100% !important; width: 100% !important; }
   </style>
 </head>
 <body>
@@ -23,26 +21,16 @@
     <button id="go">Calculate</button>
   </div>
 
-  <h2>Production breakdown (crafts per item)</h2>
-  <pre id="crafts">{}</pre>
-
-  <h2>Base needs & credits</h2>
-  <pre id="base">{}</pre>
-  <pre id="credits">{}</pre>
-
-  <h2>Totals (net base = needs − credits)</h2>
+  <h2>Totals (net requirements; negative = surplus)</h2>
   <pre id="totals">{}</pre>
 
-  <h2>Chart (top 20 by |net|)</h2>
-  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+  <h2>Chart (inputs & surplus)</h2>
+  <canvas id="chart" height="260"></canvas>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const recipeSel = document.getElementById('recipe');
     const qtyEl = document.getElementById('qty');
-    const craftsEl = document.getElementById('crafts');
-    const baseEl = document.getElementById('base');
-    const creditsEl = document.getElementById('credits');
     const totalsEl = document.getElementById('totals');
     let chart;
 
@@ -50,42 +38,34 @@
       list.forEach(n => {
         const o=document.createElement('option'); o.value=n; o.textContent=n; recipeSel.appendChild(o);
       });
+      // default to Ultraleeks if available
       if ([...recipeSel.options].some(o=>o.value==='Ultraleeks')) recipeSel.value='Ultraleeks';
     });
 
-    document.getElementById('go').onclick = calc;
-
-    async function calc(){
-      const item = recipeSel.value, qty = qtyEl.value;
+    document.getElementById('go').onclick = async ()=>{
+      const item = recipeSel.value;
+      const qty  = qtyEl.value;
       const res = await fetch(`/api/calc?item=${encodeURIComponent(item)}&qty=${encodeURIComponent(qty)}`);
       if(!res.ok){ alert(await res.text()); return; }
       const data = await res.json();
-      craftsEl.textContent  = JSON.stringify(data.crafts,  null, 2);
-      baseEl.textContent    = JSON.stringify(data.base,    null, 2);
-      creditsEl.textContent = JSON.stringify(data.credits, null, 2);
-      totalsEl.textContent  = JSON.stringify(data.totals,  null, 2);
+      totalsEl.textContent = JSON.stringify(data.totals, null, 2);
 
-      // Chart: top 20 by absolute net value
-      const entries = Object.entries(data.totals)
-        .sort((a,b)=>Math.abs(b[1]) - Math.abs(a[1]))
-        .slice(0, 20);
-
+      // Build chart excluding the target item itself if its value is 0
+      const entries = Object.entries(data.totals).sort(([a],[b])=>a.localeCompare(b));
       const labels = entries.map(([k])=>k);
       const values = entries.map(([,v])=>v);
-      const max = Math.max(...values.map(v=>Math.abs(v))) || 1;
 
       if(chart) chart.destroy();
       chart = new Chart(document.getElementById('chart').getContext('2d'), {
         type: 'bar',
         data: { labels, datasets:[{ label: 'Net amount', data: values }] },
         options: {
-          responsive:true, maintainAspectRatio:false, animation:false,
-          scales:{ y:{ suggestedMin:-max*1.05, suggestedMax:max*1.05 } },
-          plugins:{ legend:{ display:true } },
-          parsing:false
+          responsive:true, maintainAspectRatio:false,
+          scales:{ y:{ beginAtZero:true } },
+          plugins:{ legend:{ display:true } }
         }
       });
-    }
+    };
   </script>
 </body>
 </html>

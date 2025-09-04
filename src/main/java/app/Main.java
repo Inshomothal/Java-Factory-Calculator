@@ -12,22 +12,26 @@ public class Main {
     app.get("/api/calc", ctx -> {
       String item = ctx.queryParam("item");
       double qty = parse(ctx.queryParam("qty"), 1.0);
-      if (item == null || item.isBlank()) { ctx.status(400).result("missing item"); return; }
-      if (!Domain.items().contains(item)) { ctx.status(400).result("unknown item"); return; }
+      if (item == null || !Domain.items().contains(item)) { ctx.status(400).result("unknown item"); return; }
 
-      Map<String, Double> totals = Domain.compute(item, qty);
-      // Present as { item: amount } with 6 decimal precision typical of fractional crafts
-      var out = new TreeMap<String, Object>();
-      totals.forEach((k,v) -> out.put(k, round6(v)));
-      Map<String,Object> payload = Map.of(
-        "item", item,
-        "qty", qty,
-        "totals", out
-      );
+      var plan = Domain.computePlan(item, qty);
+      var totals = Domain.netBaseTotals(plan);
+
+      Map<String,Object> payload = new LinkedHashMap<>();
+      payload.put("item", item);
+      payload.put("qty", qty);
+      payload.put("crafts", roundMap(plan.crafts()));
+      payload.put("base", roundMap(plan.base()));
+      payload.put("credits", roundMap(plan.credits()));
+      payload.put("totals", roundMap(totals)); // base - credits
       ctx.json(payload);
     });
   }
 
   static double parse(String s, double d){ try { return Double.parseDouble(s); } catch(Exception e){ return d; } }
-  static double round6(double x){ return Math.round(x * 1_000_000.0) / 1_000_000.0; }
+  static Map<String,Double> roundMap(Map<String,Double> in){
+    Map<String,Double> m = new TreeMap<>();
+    in.forEach((k,v)-> m.put(k, Math.round(v*1_000_000.0)/1_000_000.0));
+    return m;
+  }
 }
