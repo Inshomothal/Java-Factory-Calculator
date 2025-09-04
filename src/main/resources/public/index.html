@@ -7,7 +7,17 @@
     body { font-family: system-ui, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 12px; }
     label { margin-right: 12px; display: inline-block; }
     pre { background:#f6f6f6; padding:12px; overflow:auto; }
-    .chart-wrap { height: 260px; }
+    .chart-wrap {
+        position: relative;
+        height: 260px;       /* hard cap */
+        max-height: 260px;
+        overflow: hidden;    /* prevent growth */
+    }
+    #chart {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;  /* fill the 260px wrapper, no more */
+    }
     canvas { height: 100% !important; width: 100% !important; }
   </style>
 </head>
